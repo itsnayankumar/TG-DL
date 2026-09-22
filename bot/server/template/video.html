@@ -120,6 +120,7 @@
         <div onclick="km_player()" class="btn btn-primary">KM Player</div>
         <div onclick="get_file()" class="btn btn-primary">Get File</div>
         <div onclick="copyUrl()" class="btn btn-primary">Copy Url</div>
+        <div onclick="copyDDL()" id="ddlBtn" class="btn btn-primary">Copy DDL</div>
         <div onclick="download()" class="btn btn-primary">Download</div>
     </div>
     <footer class="footer mt-auto py-3 text-muted text-center" style="color: white;">
@@ -184,14 +185,52 @@
         }
     }
     function copyUrl() {
-        const url = downloadlink;
-        navigator.clipboard.writeText(url)
-            .then(() => {
-                alert('URL copied to clipboard!');
-            })
-            .catch((error) => {
-                console.error('Failed to copy URL: ', error);
+        copyTextToClipboard(downloadlink, 'URL copied to clipboard!');
+    }
+    function copyDDL() {
+        const videoElement = document.getElementById('player');
+        const ddlUrl = (videoElement && videoElement.src && videoElement.src !== '#' && !videoElement.src.includes(window.location.pathname)) 
+            ? videoElement.src 
+            : downloadlink;
+            
+        copyTextToClipboard(ddlUrl, null, true);
+    }
+    function copyTextToClipboard(text, alertMsg, isDDL = false) {
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(() => {
+                handleSuccess(alertMsg, isDDL);
+            }).catch(() => {
+                fallbackCopy(text, alertMsg, isDDL);
             });
+        } else {
+            fallbackCopy(text, alertMsg, isDDL);
+        }
+    }
+    function fallbackCopy(text, alertMsg, isDDL) {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            handleSuccess(alertMsg, isDDL);
+        } catch (err) {
+            console.error('Copy failed: ', err);
+        }
+        document.body.removeChild(textArea);
+    }
+    function handleSuccess(alertMsg, isDDL) {
+        if (alertMsg) alert(alertMsg);
+        if (isDDL) {
+            const btn = document.getElementById("ddlBtn");
+            if (btn) {
+                btn.innerText = "Copied!";
+                setTimeout(() => { btn.innerText = "Copy DDL"; }, 2000);
+            }
+        }
     }
     function updateVideoSource() {
         const videoElement = document.getElementById('player');

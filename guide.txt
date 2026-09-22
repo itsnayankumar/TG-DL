@@ -1,0 +1,3 @@
+To Start The Server----servst
+To Stop The Server-----servsp
+to clear the DB--------mongo surftg --eval "db.dropDatabase()"
