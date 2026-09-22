@@ -115,13 +115,12 @@
         </div>
     </div>
     <div class="container d-flex justify-content-center align-items-center" style="width: 100%; padding: 0 5px;">
-        <div onclick="mx_player()" class="btn btn-primary">MX Player</div>
-        <div onclick="vlc_player()" class="btn btn-primary">VLC Mobile</div>
-        <div onclick="km_player()" class="btn btn-primary">KM Player</div>
+        <div onclick="mpvkt_player()" class="btn btn-primary"><i class="bi bi-play-btn-fill"></i> MPV KT</div>
         <div onclick="get_file()" class="btn btn-primary">Get File</div>
         <div onclick="copyUrl()" class="btn btn-primary">Copy Url</div>
         <div onclick="copyDDL()" id="ddlBtn" class="btn btn-primary">Copy DDL</div>
         <div onclick="download()" class="btn btn-primary">Download</div>
+        <div onclick="deleteFile()" class="btn btn-danger"><i class="bi bi-trash"></i> Delete File</div>
     </div>
     <footer class="footer mt-auto py-3 text-muted text-center" style="color: white;">
         <div class="container d-flex justify-content-center align-items-center" style="width: 100%; padding: 0 10px;">
@@ -154,26 +153,18 @@
         keyboard: { focused: true, global: true },
         loop: { active: false },
     });
-    function mx_player() {
+
+    function mpvkt_player() {
         const openDownloadLink = downloadlink;
-        const openMx = `intent:${openDownloadLink}#Intent;package=com.mxtech.videoplayer.ad;end`;
-        window.location.href = openMx;
+        // Broadcasts a universal video stream intent so Android prompts to open MPV-KT
+        const openMpvkt = `intent:${openDownloadLink}#Intent;type=video/*;action=android.intent.action.VIEW;end`;
+        window.location.href = openMpvkt;
     }
 
-    function vlc_player() {
-        const openDownloadLink = downloadlink;
-        const openVlc = `vlc://${openDownloadLink}`;
-        window.location.href = openVlc;
-    }
-    function km_player() {
-        const openDownloadLink = downloadlink;
-        const openKmplayer = `intent:${openDownloadLink}#Intent;package=com.kmplayer;end`;
-        window.location.href = openKmplayer;
-    }
     function download() {
-        const openDownloadLink = downloadlink;
-        window.location.href = openDownloadLink;
+        window.location.href = downloadlink;
     }
+
     function get_file() {
         const regex = /(\d+)\?id=(\d+)&/;
         const match = videolink.match(regex);
@@ -184,17 +175,20 @@
             window.location.href = openTG;
         }
     }
+
     function copyUrl() {
         copyTextToClipboard(downloadlink, 'URL copied to clipboard!');
     }
+
     function copyDDL() {
         const videoElement = document.getElementById('player');
-        const ddlUrl = (videoElement && videoElement.src && videoElement.src !== '#' && !videoElement.src.includes(window.location.pathname)) 
-            ? videoElement.src 
+        const ddlUrl = (videoElement && videoElement.src && videoElement.src !== '#' && !videoElement.src.includes(window.location.pathname))
+            ? videoElement.src
             : downloadlink;
-            
+
         copyTextToClipboard(ddlUrl, null, true);
     }
+
     function copyTextToClipboard(text, alertMsg, isDDL = false) {
         if (navigator.clipboard && window.isSecureContext) {
             navigator.clipboard.writeText(text).then(() => {
@@ -206,6 +200,7 @@
             fallbackCopy(text, alertMsg, isDDL);
         }
     }
+
     function fallbackCopy(text, alertMsg, isDDL) {
         const textArea = document.createElement("textarea");
         textArea.value = text;
@@ -222,6 +217,7 @@
         }
         document.body.removeChild(textArea);
     }
+
     function handleSuccess(alertMsg, isDDL) {
         if (alertMsg) alert(alertMsg);
         if (isDDL) {
@@ -232,11 +228,29 @@
             }
         }
     }
+
     function updateVideoSource() {
         const videoElement = document.getElementById('player');
-        const newSrc = downloadlink;
-        videoElement.src = newSrc;
+        videoElement.src = downloadlink;
     }
+
+    async function deleteFile() {
+        if (confirm("Are you sure you want to delete this file permanently from Telegram and the database?")) {
+            try {
+                const response = await fetch(`/api/delete/${idParam}`, { method: 'POST' });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    alert("File successfully deleted!");
+                    window.location.href = "/";
+                } else {
+                    alert("Failed to delete file: " + data.message);
+                }
+            } catch (err) {
+                alert("Error connecting to server.");
+            }
+        }
+    }
+
     window.onload = function () {
         updateVideoSource();
     };

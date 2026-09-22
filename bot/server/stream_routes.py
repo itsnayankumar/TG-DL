@@ -9,7 +9,7 @@ from bot.helper.chats import get_chats, post_playlist, posts_chat, posts_db_file
 from bot.helper.database import Database
 from bot.helper.search import search
 from bot.helper.thumbnail import get_image
-from bot.telegram import work_loads, multi_clients
+from bot.telegram import work_loads, multi_clients, StreamBot
 from aiohttp_session import get_session
 from bot.config import Telegram
 from bot.helper.exceptions import FIleNotFound, InvalidHash
@@ -17,8 +17,6 @@ from bot.helper.index import get_files, posts_file
 from bot.server.custom_dl import ByteStreamer
 from bot.server.render_template import render_page
 from bot.helper.cache import rm_cache
-
-from bot.telegram import StreamBot
 
 client_cache = {}
 
@@ -92,6 +90,36 @@ async def delete_route(request):
         return web.HTTPFound('/')
     else:
         return web.HTTPFound(f'/playlist?db={parent}')
+
+
+@routes.post('/api/delete/{id}')
+async def delete_file_handler(request):
+    session = await get_session(request)
+    if 'user' not in session:
+        return web.json_response({'status': 'error', 'message': 'Unauthorized'}, status=403)
+
+    try:
+        msg_id = request.match_info.get('id')
+        
+        # Query MongoDB using msg_id instead of Mongo ObjectId
+        file_data = await db.get_tgfile_by_msg_id(msg_id)
+        if not file_data:
+            return web.json_response({'status': 'error', 'message': 'File not found'}, status=404)
+
+        chat_id = file_data.get("chat_id")
+
+        if chat_id and msg_id:
+            try:
+                await StreamBot.delete_messages(chat_id=int(chat_id), message_ids=int(msg_id))
+            except Exception as tg_err:
+                logging.warning(f"Failed to delete message from Telegram: {tg_err}")
+
+        await db.delete_tgfile_by_msg_id(msg_id)
+        return web.json_response({'status': 'success', 'message': 'File deleted successfully'})
+
+    except Exception as e:
+        logging.error(f"Error in delete_file_handler: {e}")
+        return web.json_response({'status': 'error', 'message': str(e)}, status=500)
 
 
 @routes.post('/edit')
@@ -203,7 +231,6 @@ async def editConfig_route(request):
     if not success:
         return web.HTTPInternalServerError()
     return web.HTTPFound('/')
-
 
 
 @routes.get('/')
@@ -356,7 +383,6 @@ async def stream_handler(request: web.Request):
         chat_id = request.match_info['chat_id']
         chat_id = f"-100{chat_id}"
         message_id = request.query.get('id')
-        #name = request.match_info['encoded_name']
         secure_hash = request.query.get('hash')
         return await media_streamer(request, int(chat_id), int(message_id), secure_hash)
     except InvalidHash as e:

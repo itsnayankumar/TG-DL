@@ -52,15 +52,15 @@ class Database:
             "parent_folder": 'root', "type": "folder"}
         if parent_id != 'root':
             offset = (int(page) - 1) * per_page
-            return list(self.collection.find(query).skip(offset).limit(per_page))
+            return list(self.collection.find(query).sort('_id', DESCENDING).skip(offset).limit(per_page))
         else:
-            return list(self.collection.find(query))
+            return list(self.collection.find(query).sort('_id', DESCENDING))
 
     async def get_dbFiles(self, parent_id=None, page=1, per_page=50):
         query = {"parent_folder": parent_id, "type": "file"}
         offset = (int(page) - 1) * per_page
         return list(self.collection.find(query).sort(
-            'file_id', DESCENDING).skip(offset).limit(per_page))
+            '_id', DESCENDING).skip(offset).limit(per_page))
 
     async def get_info(self, id):
         query = {'_id': ObjectId(id)}
@@ -76,7 +76,7 @@ class Database:
         query = {'type': 'file', 'parent_folder': id, 'name': regex_query}
         offset = (int(page) - 1) * per_page
         mydoc = self.collection.find(query).sort(
-            'file_id', DESCENDING).skip(offset).limit(per_page)
+            '_id', DESCENDING).skip(offset).limit(per_page)
         return list(mydoc)
 
     async def update_config(self, theme, auth_channel):
@@ -100,7 +100,7 @@ class Database:
         query = {'chat_id': id}
         offset = (int(page) - 1) * per_page
         mydoc = self.files.find(query).sort(
-            'msg_id', DESCENDING).skip(offset).limit(per_page)
+            '_id', DESCENDING).skip(offset).limit(per_page)
         return list(mydoc)
 
     async def add_tgfiles(self, chat_id, file_id, hash, name, size, file_type):
@@ -110,7 +110,6 @@ class Database:
                 "hash": hash, "title": name, "size": size, "type": file_type}
         self.files.insert_one(file)
 
-
     async def search_tgfiles(self, id, query, page=1, per_page=50):
         words = re.findall(r'\w+', query.lower())
         regex_pattern = '.*'.join(f'(?=.*{re.escape(word)})' for word in words)
@@ -118,8 +117,42 @@ class Database:
         query = {'chat_id': id, 'title': regex_query}
         offset = (int(page) - 1) * per_page
         mydoc = self.files.find(query).sort(
-            'msg_id', DESCENDING).skip(offset).limit(per_page)
+            '_id', DESCENDING).skip(offset).limit(per_page)
         return list(mydoc)
-    
+
     async def add_btgfiles(self, data):
         result = self.files.insert_many(data)
+
+    async def get_tgfile_by_id(self, document_id):
+        """Fetch document by Mongo _id"""
+        try:
+            return self.files.find_one({'_id': ObjectId(document_id)})
+        except Exception as e:
+            print(f'Error getting file by _id: {e}')
+            return None
+
+    async def delete_tgfile_by_id(self, document_id):
+        """Remove document from MongoDB by Mongo _id"""
+        try:
+            result = self.files.delete_one({'_id': ObjectId(document_id)})
+            return result.deleted_count > 0
+        except Exception as e:
+            print(f'Error deleting file by _id: {e}')
+            return False
+
+    async def get_tgfile_by_msg_id(self, msg_id):
+        """Fetch file document using Telegram msg_id"""
+        try:
+            return self.files.find_one({'msg_id': int(msg_id)})
+        except Exception as e:
+            print(f'Error getting file by msg_id: {e}')
+            return None
+
+    async def delete_tgfile_by_msg_id(self, msg_id):
+        """Delete file document using Telegram msg_id"""
+        try:
+            result = self.files.delete_one({'msg_id': int(msg_id)})
+            return result.deleted_count > 0
+        except Exception as e:
+            print(f'Error deleting file by msg_id: {e}')
+            return False
